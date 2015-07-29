@@ -27,10 +27,14 @@ class PNS(object):
     一旦创建智能体，就向服务器注册
     """
     def __init__(self, agentID, teamname, host='localhost', port=3100,
-            model='rsg/agent/nao/nao.rsg', debugLevel=10):
+            model='', debugLevel=10):
 
-        """
-
+        """='rsg/agent/nao/nao.rsg'
+        other model:(scene rsg/agent/nao/nao_hetero.rsg 0)
+        (scene rsg/agent/nao/nao_hetero.rsg 1)
+        (scene rsg/agent/nao/nao_hetero.rsg 2)
+        (scene rsg/agent/nao/nao_hetero.rsg 3)
+        (scene rsg/agent/nao/nao_hetero.rsg 4)
         :rtype : object
         """
         self.agentID    = agentID
@@ -455,13 +459,14 @@ class NaoRobot(object):
     """Class that represents the Nao Soccer Robot
     机器人的实现"""
 
-    def __init__(self, agentID, teamname, host='localhost', port=3100, debugLevel=0,
+    def __init__(self, agentID, teamname, host='localhost', port=3100, model='', debugLevel=0,
             startCoordinates=[-0.5, 0, 0]): 
 
         self.agentID       = agentID
         self.teamname      = teamname
         self.host          = host
         self.port          = port
+        self.model         = model
         self.debugLevel    = debugLevel
         self.alive         = False
         self.realstarttime = None # starttime of robot
@@ -637,8 +642,11 @@ class NaoRobot(object):
  
         # create peripheral nervous system (server communication)
         #创建PNS
+        #def __init__(self, agentID, teamname, host='localhost', port=3100,
+        #    model='rsg/agent/nao/nao.rsg', debugLevel=10):
+
         self.pns = PNS(self.agentID, self.teamname,
-                host=self.host, port=self.port, debugLevel=self.debugLevel)
+                host=self.host, port=self.port, model=self.model, debugLevel=self.debugLevel)
 
         self.perceive()
         self.pns.beam_effector(startCoordinates[0], startCoordinates[1], startCoordinates[2])
