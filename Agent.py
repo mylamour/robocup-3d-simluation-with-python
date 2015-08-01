@@ -258,7 +258,7 @@ class MovementScheduler(deque):
     def append(self, newitem):
         """The first element（元素） in the newitem list must be a function that gets called
         repeatedly until it returns 'done'.
-        新指令中的第一个元素具有一个功能，可重复调用直到它返回‘done'
+        新指令中的第一个元素是一个函数，可重复调用直到它返回‘done'
         The second element is a dictionary that contains the keyword arguments passed to the function.
          第二个元素是一个字典（包含了动作的关键参数），传递参数给函数
          The third item is optional and should contain a list (as the  simplest mutable datatype)
@@ -290,6 +290,9 @@ class MovementScheduler(deque):
                         raise SchedulerConflict('The function "{}" is already in the queue.'.format(item[0]))
                 except KeyError:
                     pass
+                    #SchedulerConflict.resue_socket_addr()
+
+
 
         super().append(newitem) 
 
@@ -659,8 +662,8 @@ class NaoRobot(object):
         self.lifeThread.start()
 
         # put arms down
-        self.msched.append([self.move_hj_to, {'hj': 'raj1', 'speed': 25, 'percent': 10}])
-        self.msched.append([self.move_hj_to, {'hj': 'laj1', 'speed': 25, 'percent': 10}])
+       # self.msched.append([self.move_hj_to, {'hj': 'raj1', 'speed': 25, 'percent': 10}])
+       # self.msched.append([self.move_hj_to, {'hj': 'laj1', 'speed': 25, 'percent': 10}])
 
 
 # ==================================== #
@@ -669,6 +672,7 @@ class NaoRobot(object):
         """Start the robot"""
 
         # only one live thread allowed!
+        #只允许有一个活动线程，所以说，如何使用多线程？？
         if self.alive:
             return
 
@@ -736,16 +740,16 @@ class NaoRobot(object):
             if perceptor[0] == 'time':
                 self.gamestate.set_time(perceptor[1][1])
                 if self.realstarttime == None:
-                    self.realstarttime = time.time()
-                    self.simstarttime  = self.gamestate.get_time()
+                    self.realstarttime = time.time()                #真时的时间
+                    self.simstarttime  = self.gamestate.get_time()  #仿真服务器的时间
                 if skip:
                     break
 
             # game state
             elif perceptor[0] == 'GS':
                 for field in perceptor[1:]:
-                    if field[0] == 'sl':
-                        self.gamestate.set_scoreLeft(field[1])
+                    if field[0] == 'sl':                            #我是左边开球
+                        self.gamestate.set_scoreLeft(field[1])      #我是右边开球
                     elif field[0] == 'sr':
                         self.gamestate.set_scoreRight(field[1])
                     elif field[0] == 't':
@@ -815,6 +819,10 @@ class NaoRobot(object):
 
 # ==================================== #
 
+#    move_hj_to:移动关节到特殊角
+#    move_hj_by:通过特殊角移动关节
+
+# +++++++++++++++++++++++++++++++++++++++ #
     def move_hj_to(self, hj, angle=None, percent=None, speed=25):
         """Move the given hinge joint to the specified angle
         移动铰链关节达到特殊的角度
@@ -896,7 +904,8 @@ class NaoRobot(object):
 # ==================================== #
 
     def get_hj(self, hj):
-        """Return hj value in percent"""
+        """Return hj value in percent
+        返回铰链关节的百分比"""
 
         angle    = self.hj[hj]
         minAngle = self.hjMin[hj]
@@ -909,7 +918,8 @@ class NaoRobot(object):
 # ==================================== #
 
     def step_left(self):
-        """Make a step with the left foot"""
+        """Make a step with the left foot
+        迈左脚"""
 
         done = [False]
         print("ACC:", np.linalg.norm(self.acc.get()))
@@ -920,7 +930,7 @@ class NaoRobot(object):
         self.msched.append([self.move_hj_to, {'hj': 'rlj5', 'percent': 100}, done])
         self.msched.append([self.move_hj_to, {'hj': 'llj5', 'percent': 100}, done])
 
-        self.test_orientation(0.1)
+        self.test_orientation(0.1)              #orientation方向，定位
 
 
 #        while not done[0]:
@@ -1013,6 +1023,38 @@ class SchedulerConflict(Exception):
         self.value = value
     def __str__(self):
         return repr(self.value)
+"""
+    def resue_socket_addr(self,port):
+        resue_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        old_state = resue_socket.getsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR)
+        print("Old State:%s" %old_state)
+
+        resue_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        new_state = resue_socket.getsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR)
+        print("New State: %s" %new_state)
+
+        self.port = port
+
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+        srv.bind('',self.port)
+        srv.listen(1)
+        print("Listening On Port :%s " %self.port)
+
+        while(True):
+            try:
+                connection,addr = srv.accept()
+                print( "Connect by %s:%s" % (addr[0],addr[1]))
+            except KeyboardInterrupt:
+                break
+           # except socket.error,msg:
+            #    print("%s" %msg)
+"""
+
+
+
+
 
 class QueueItemError(Exception):
     """Raised if an item to be schedule with the MovementScheduler
@@ -1020,5 +1062,7 @@ class QueueItemError(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return repr(self.value) 
+        return repr(self.value)
+
+
 
