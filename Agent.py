@@ -287,10 +287,11 @@ class MovementScheduler(deque):
                 try:
                     if dictionary['hj'] == newDictionary['hj']:
                         # two functions operating on the same hj not allowed
+                        #两个函数都是操控同一个铰链关节是不允许的。（假如在多线程的情况下是不是可以？，难道非要把一整套的关节弄好输入到新的字典中？
                         raise SchedulerConflict('The function "{}" is already in the queue.'.format(item[0]))
                 except KeyError:
-                    pass
-                    #SchedulerConflict.resue_socket_addr()
+                    SchedulerConflict.resue_socket_addr(host=3100)
+                    #pass
 
 
 
@@ -494,30 +495,32 @@ class NaoRobot(object):
         self.acc        = Accelerometer('torso')
 
         # hinge joint perceptor states
-        self.hj         = {'hj1' : 0.0,
-                           'hj2' : 0.0,
-                           'raj1': 0.0,
-                           'raj2': 0.0,
-                           'raj3': 0.0,
-                           'raj4': 0.0,
-                           'laj1': 0.0,
-                           'laj2': 0.0,
-                           'laj3': 0.0,
-                           'laj4': 0.0,
-                           'rlj1': 0.0,
-                           'rlj2': 0.0,
-                           'rlj3': 0.0,
-                           'rlj4': 0.0,
-                           'rlj5': 0.0,
-                           'rlj6': 0.0,
-                           'llj1': 0.0,
-                           'llj2': 0.0,
-                           'llj3': 0.0,
-                           'llj4': 0.0,
-                           'llj5': 0.0,
-                           'llj6': 0.0,}
+        #对应的三种状态，左右摇摆，上下倾斜，沿轴转动
+        self.hj         = {'hj1' : 0.0,         #Neck Yaw   脖子左右摇摆
+                           'hj2' : 0.0,         #Neck Pitch    脖子上下倾斜
+                           'raj1': 0.0,         #Right Shoulder Pitch
+                           'raj2': 0.0,         #Right Shoulder Yaw
+                           'raj3': 0.0,         #Right Arm Roll
+                           'raj4': 0.0,         #Right Arm Yaw
+                           'laj1': 0.0,         #___Left Shoulder Pitch
+                           'laj2': 0.0,         #___Left Shoulder Yaw
+                           'laj3': 0.0,         #___Left Arm Roll
+                           'laj4': 0.0,         #___Left Arm Yaw
+                           'rlj1': 0.0,         #Right Hip YawPitch
+                           'rlj2': 0.0,         #Right Hip Roll
+                           'rlj3': 0.0,         #Right Hip Pitch
+                           'rlj4': 0.0,         #Right Knee Pitch
+                           'rlj5': 0.0,         #Right Foot Pitch
+                           'rlj6': 0.0,         #Right Foot Roll
+                           'llj1': 0.0,         #___Left Hip YawPitch
+                           'llj2': 0.0,         #___Left Hip Roll
+                           'llj3': 0.0,         #___Left Hip Pitch
+                           'llj4': 0.0,         #___Left Knee Pitch
+                           'llj5': 0.0,         #___Left Foot Pitch
+                           'llj6': 0.0,}        #___Left Foot Roll
 
         # corresponding hinge joint effectors
+        #铰链关节感受器与之对应的效应器
         self.hjEffector = {'hj1' : 'he1',
                            'hj2' : 'he2',
                            'raj1': 'rae1',
@@ -547,6 +550,7 @@ class NaoRobot(object):
                            'lf': ForceResistanceSensor('lf')}
 
         # hinge joint effector states
+        #要明白一个关节转动之后对其他关节的带动及影响
         self.he         = {'he1' : 0.0,
                            'he2' : 0.0,
                            'rae1': 0.0,
@@ -650,7 +654,7 @@ class NaoRobot(object):
 
         self.pns = PNS(self.agentID, self.teamname,
                 host=self.host, port=self.port, model=self.model, debugLevel=self.debugLevel)
-
+        #因为球员平台对类型的要求较多，所以，需要修改model作为参数传入
         self.perceive()
         self.pns.beam_effector(startCoordinates[0], startCoordinates[1], startCoordinates[2])
 
@@ -658,9 +662,10 @@ class NaoRobot(object):
         for hj in self.hjDefault.keys():
             self.hjDefault[hj] = self.get_hj(hj)
 
-        self.lifeThread = threading.Thread(target=self.live)
+        self.lifeThread = threading.Thread(target=self.live)                #难道要直接在类里面使用？
         self.lifeThread.start()
 
+        #percent的存在使得对不同球员来讲，调好一个智能体的角度之后，可以使用其百分比应用于不同类型
         # put arms down
        # self.msched.append([self.move_hj_to, {'hj': 'raj1', 'speed': 25, 'percent': 10}])
        # self.msched.append([self.move_hj_to, {'hj': 'laj1', 'speed': 25, 'percent': 10}])
@@ -846,7 +851,7 @@ class NaoRobot(object):
         
         if   angle > self.hjMax[hj]: angle = self.hjMax[hj]
         elif angle < self.hjMin[hj]: angle = self.hjMin[hj]
-        if   speed > 100: speed = 100.0
+        if   speed > 100: speed = 100.0                             #即便如此，我发现当每次speed为>100和>>100的时候，机器人的运转还是不一样的
         elif speed < 0:   speed = 0.0
 
         speed = speed/100.0 * self.maxhjSpeed
@@ -920,7 +925,6 @@ class NaoRobot(object):
     def step_left(self):
         """Make a step with the left foot
         迈左脚"""
-
         done = [False]
         print("ACC:", np.linalg.norm(self.acc.get()))
 
@@ -933,40 +937,26 @@ class NaoRobot(object):
         self.test_orientation(0.1)              #orientation方向，定位
 
 
-#        while not done[0]:
-#            print("ACC:", np.linalg.norm(self.acc.get()))
-#            print("GYR:", self.gyr.get())
-#            print(self.gyr.x)
-#            print(self.gyr.y)
-#            print(self.gyr.z)
-#            print("")
-#            time.sleep(0.05)
-#
-#        time = time.time()
-#        time.sleep(1.0)
-            
-#        done[0] = False
-#        self.msched.append([self.move_hj_to, {'hj': 'hj1', 'percent': 0}, done])
-#        while not done[0]:
-#            pass 
-#        done[0] = False
-#        self.msched.append([self.move_hj_to, {'hj': 'hj1', 'percent': 50}, done])
-#        while not done[0]:
-#            pass  
-
-# ==================================== #
-
-    def test_orientation(self, length=1.0):
-        start = time.time()
-        while time.time() - start < length:
-            print("time: {:.3f}".format(time.time()-start))
-            print(self.gyr.rate)
-            print(self.gyr.x)
-            print(self.gyr.y)
-            print(self.gyr.z) 
-            print("")
-            time.sleep(CYCLE_LENGTH)
-
+        # while not done[0]:
+        #    print("ACC:", np.linalg.norm(self.acc.get()))
+        #    print("GYR:", self.gyr.get())
+        #    print(self.gyr.x)
+        #    print(self.gyr.y)
+        #    print(self.gyr.z)
+        #    print("")
+        #    time.sleep(0.05)
+        #
+        # time = time.time()
+        # time.sleep(1.0)
+        #
+        # done[0] = False
+        # self.msched.append([self.move_hj_to, {'hj': 'hj1', 'percent': 0}, done])
+        # while not done[0]:
+        #     pass
+        # done[0] = False
+        # self.msched.append([self.move_hj_to, {'hj': 'hj1', 'percent': 50}, done])
+        # while not done[0]:
+        #     pass
 
 # ============================================================================ #
 
@@ -1023,7 +1013,7 @@ class SchedulerConflict(Exception):
         self.value = value
     def __str__(self):
         return repr(self.value)
-"""
+
     def resue_socket_addr(self,port):
         resue_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -1049,8 +1039,7 @@ class SchedulerConflict(Exception):
             except KeyboardInterrupt:
                 break
            # except socket.error,msg:
-            #    print("%s" %msg)
-"""
+           #      print("%s" %msg)
 
 
 
