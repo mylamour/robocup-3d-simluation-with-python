@@ -6,6 +6,8 @@ import threading
 import socket, struct
 import numpy as np
 from collections import deque
+from World import *
+
 
 # ============================================================================ #
 
@@ -120,11 +122,12 @@ class PNS(object):
         """Minimal parsing of perceptor message.
         Convert message to nested python lists, substituting '[' and ']'
         for '(' and ')'
-        解析感知器信息，并存储到列表中
+        解析感知器信息，并存储到列表中--->把()内的内容转换为嵌套式的列表
         """
 
         return self.__str2list(perceptors)
 
+#这个写的是真棒，所有东西最核心基础的地方
 # ==================================== #
 
     def __str2list(self, string):
@@ -137,32 +140,32 @@ class PNS(object):
         bra   = '('
         ket   = ')'
         space = ' '
-        nbra  = 0 # number of '('
-        nket  = 0 # number of ')'
+        nbra  = 0 # number of '('       左括号的数量
+        nket  = 0 # number of ')'       右括号的数量
 
         nonword = [space, bra, ket]
 
-        # begin and end indices of new sublist
+        # begin and end indices of new sublist　　开始到结束之间一共有多少子表
         begin = 0
         end   = 0
 
         prevc = ''
         for i, c in enumerate(string):
 
-            # detect word beginnings
+            # detect word beginnings    探测开始字符
             if (i == 0 and c != bra):
                 begin = i
             elif (nbra == 0 and c not in nonword and (prevc == bra or prevc == space)):
                 begin = i
 
-            # detect beginning of new nested list
+            # detect beginning of new nested list　　探测嵌入列表  (gyr (n torse) (pol x y z))
             elif (c == bra and nbra == nket):
                 begin = i+1
             elif (c == ket and nbra == nket+1):
                 end = i
                 l.append(self.__str2list(string[begin:end]))
 
-            # detect word endings
+            # detect word endings       探测结束字符
             if (i == len(string)-1 and c != ket):
                 word = string[begin:]
                 try: word = int(word)
@@ -232,7 +235,7 @@ class PNS(object):
         At most 20 ASCII characters are allowed
         最多20个字符
         white space and normal brackets are prohibited.
-        空格和方括号是被禁止的（防注入）"""
+        空格和方括号是被禁止的（防注入?）"""
         if len(message) > 20:
             message = message[:20]
         for c in message:
@@ -246,7 +249,7 @@ class PNS(object):
 
 # ============================================================================ #
 
-
+# ============================================================================= #
 class MovementScheduler(deque):
     """A queue for scheduling robot movements.
     动作调度： 用一个队列储存调度机器人的动作参数
@@ -258,7 +261,7 @@ class MovementScheduler(deque):
     def append(self, newitem):
         """The first element（元素） in the newitem list must be a function that gets called
         repeatedly until it returns 'done'.
-        新指令中的第一个元素是一个函数，可重复调用直到它返回‘done'
+        新指令(list)中的第一个元素是一个函数，可重复调用直到它返回‘done'
         The second element is a dictionary that contains the keyword arguments passed to the function.
          第二个元素是一个字典（包含了动作的关键参数），传递参数给函数
          The third item is optional and should contain a list (as the  simplest mutable datatype)
@@ -291,7 +294,7 @@ class MovementScheduler(deque):
                         raise SchedulerConflict('The function "{}" is already in the queue.'.format(item[0]))
                 except KeyError:
                     SchedulerConflict.resue_socket_addr(host=3100)
-                    #pass
+                    #pass这并不是同用一个端口造成的，所有这个异常写的没有用
 
 
 
@@ -317,6 +320,14 @@ class MovementScheduler(deque):
 
 
 # ============================================================================ #
+# General Perceptors :
+                        # GyroRate Perceptor                  √
+                        # HingeJoint Perceptor                √
+                        # UniversalJoint Perceptor          --need--
+                        # Touch Perceptor                   --need--
+                        # ForceResistance Perceptor           √
+                        # Accelerometer                       √
+
 
 
 class GameState(object):
@@ -394,6 +405,7 @@ class Gyroscope(object):
         rotationAngle = np.linalg.norm(self.rate) / (1.0/CYCLE_LENGTH) 
 
         # rotate local coordinate frame
+        #使用local坐标系
         self.x = rotate_arbitrary(self.rate, self.x, angle=rotationAngle)
         self.y = rotate_arbitrary(self.rate, self.y, angle=rotationAngle)
         self.z = rotate_arbitrary(self.rate, self.z, angle=rotationAngle)
@@ -411,7 +423,7 @@ class Gyroscope(object):
 class Accelerometer(object):
     """Accelerometer to measure the acceleration relative to free fall
     Will therefore indicate 1g = 9.81m/s at rest in positive z direction
-    加速计
+    计算相对于自由落体的加速度，因此以9.81m/s 在z轴正方向
     """
 
     def __init__(self, name):
@@ -434,7 +446,7 @@ class ForceResistanceSensor(object):
     """Sensor state of a Force resistance perceptor
     point is the point of origin of the force
     force is the force vector
-    力量抵抗感知器"""
+    力量抵抗感知器：一个位于原点的力的向量"""
 
     def __init__(self, name):
         self.name  = name
@@ -443,13 +455,15 @@ class ForceResistanceSensor(object):
 
     def set(self, point, force):
         """Set the point of origin and the force
-        Any 3 dimensional object that holds data convertible to float is valid"""
+        Any 3 dimensional object that holds data convertible to float is valid
+        设置原点和力，任何三维物体将数值转换为浮点型是有效的"""
         for i in range(3):
             self.point[i] = point[i]
             self.force[i] = force[i]
 
     def get_point(self):
-        """get the point of origin coordinates"""
+        """get the point of origin coordinates
+        得到原点坐标"""
         return self.point
 
     def get_force(self):
@@ -457,6 +471,66 @@ class ForceResistanceSensor(object):
         return self.force
 
 # ============================================================================ #
+# 连个Vision都没有，玩你妹╮（╯＿╰）╭　
+#  Soccer Perceptors:
+                                    # Vision Perceptor          --need--        √ 2015/8/24
+                                    # GameState Perceptor         √
+                                    # Hear Perceptor           --need--
+                                    # AgentState Perceptor     --need--         server 没有开启充电这一块的功能
+
+# ============================================================================ #
+#[name,[x,y,z]]
+class Vision(object):
+    def __init__(self,name):
+        self.name = name
+        self.flag= np.zeros(3, dtype=np.float)
+        self.ballLocation = np.zeros(3, dtype=np.float)
+        self.playerLocation = np.zeros(3, dtype=np.float)
+        self.teamname = ''
+        self.playerid = ''
+        self.playerinfo = {'teamname':self.teamname,
+                           'id':self.playerid,
+                           'location' :self.playerLocation }
+
+    def setMyFlag(self,hflag):
+        for i in range(3):
+            # self.flag[i] = flag
+            self.flag = hflag
+    def setBallLocation(self,ball):
+        for i in range(3):
+            self.ballLocation = ball
+
+    def setPlayerLocation(self,hplayerLocation):
+        for i in range(3):
+            self.playerLocation = hplayerLocation
+
+    def setPlayerId(self,unid):
+        self.playerid = unid
+
+    def setTeamname(self,unname):
+        self.teamname = unname
+
+    def getPlayerInfo(self):
+        return self.playerinfo
+    def getFlagLocation(self):
+        return  self.flag
+    def getBallLocation(self):
+        return self.ballLocation
+    def getPlayerLocation(self):
+        return self.playerLocation
+# =========================================================================== #
+
+"""Actually the underlying model stems from the 2D Soccer Simulation and has been
+integrated in the 3D simulator since server version 0.4."""
+
+# (hear <time> ’self’|<direction> <message>)        ASCII[32-126] 20byter
+#每个player每0.4s最多只能传递一条，并且不能对手也能听到
+#这属于对未知数据进行划分，猜测和预测，是不是属于高级的机器学习算法呢？想想都和激动呢～～～
+#思路：选取特征码，and不会了
+
+class Hear(object):
+    def __init__(self):
+        pass
 
 
 class NaoRobot(object):
@@ -493,6 +567,10 @@ class NaoRobot(object):
         # gyroscope and accelerometer
         self.gyr        = Gyroscope    ('torso')
         self.acc        = Accelerometer('torso')
+
+        # self.see        = Vision('F1L')               应该枚举一下，或者字典类型？　　　for flag in itemuarter ,return
+        # self.see        =[Vision('F1L'),Vision('F2L'),Vision('F1R'),Vision('F2R'),Vision('G1L'),Vision('G2L'),Vision('G1R'),Vision('G2R'),Vision('B'),Vision('team'),Vision('id')]
+
 
         # hinge joint perceptor states
         #对应的三种状态，左右摇摆，上下倾斜，沿轴转动
@@ -548,6 +626,24 @@ class NaoRobot(object):
         #力量抵抗感知器
         self.frp        = {'rf': ForceResistanceSensor('rf'),
                            'lf': ForceResistanceSensor('lf')}
+
+        # =========================================================增加vision
+        self.vision     = {
+                            'F1L' : Vision('F1L'),
+                            'F2L' : Vision('F2L'),
+                            'F1R' : Vision('F1R'),
+                            'F2R' : Vision('F2R'),
+                            'G1L' : Vision('G1L'),
+                            'G1R' : Vision('G1R'),
+                            'G2L' : Vision('G2L'),
+                            'G2R' : Vision('G2R'),
+                            'B'   : Vision('B'),
+                            'P'   : Vision('P'),
+                            'id'  : Vision('id'),
+                            'team': Vision('team')
+                        }
+
+        # =================================================================2015/8/24
 
         # hinge joint effector states
         #要明白一个关节转动之后对其他关节的带动及影响
@@ -645,7 +741,11 @@ class NaoRobot(object):
                            'llj3': 0.0,
                            'llj4': 0.0,
                            'llj5': 0.0,
-                           'llj6': 0.0,}   
+                           'llj6': 0.0,}
+
+
+
+
  
         # create peripheral nervous system (server communication)
         #创建PNS
@@ -772,7 +872,53 @@ class NaoRobot(object):
 
             # vision information
             elif perceptor[0] == 'See':
-                pass 
+                # pass
+                # 添加vision,由于前面是使用字典进行解析的，所以不能使用类似这种格式，self.vision['f1l'].setflag(xxx),擦，竟然又可以了，什么鬼
+                #在这里指存储一遍，故不必设置成字典相对应
+                for field in perceptor[1:]:
+                    if field[0] == 'F1L':
+                        # self.vision[perceptor[1][1]].setFlag(perceptor[2][1:])
+                        #上面这种写法竟然是错的，虽然逻辑是相同的，但是提示unhashable list,don't know why
+                        self.vision['F1L'].setFlag(perceptor[2][1:])
+                    elif field[0] == 'F2L':
+                        self.vision['F2L'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setMyFlag(perceptor[2][1:])
+                    elif field[0] == 'F1R':
+                        self.vision['F1R'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setMyFlag(perceptor[2][1:])
+                    elif field[0] == 'F2R':
+                        self.vision['F2R'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setMyFlag(perceptor[2][1:])
+                    elif field[0] == 'G1L':
+                        self.vision['G1L'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setMyFlag(perceptor[2][1:])
+                    elif field[0] == 'G2L':
+                        self.vision['G2L'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setMyFlag(perceptor[2][1:])
+                    elif field[0] == 'G1R':
+                        self.vision['G1R'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setMyFlag(perceptor[2][1:])
+                    elif field[0] == 'G2R':
+                        self.vision['G2R'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setMyFlag(perceptor[2][1:])
+                    elif field[0] == 'B':
+                        self.vision['B'].setMyFlag(perceptor[2][1:])
+                        # self.vision[perceptor[1][1]].setBallLocation(perceptor[2][1:])
+
+                    elif field[0] == 'team':
+                        self.vision['team'].setTeamname(perceptor[2][1:])
+                    elif field[0] == 'id':
+                        self.vision['id'].setPlayerId(perceptor[2][1:])
+                    # elif field[0] == 'P':
+                    #     # if self.vision['P'].setPlayerLocation(perceptor[3][1:]) == None :
+                    #     #     pass
+                    #     # else:
+                    #     print(self.vision['P'].setPlayerLocation(perceptor[4][1:]))
+
+            #针对player这一块的信息解析来讲，是有问题的，幸好可以使用最后的排除方法。所以vison['p]标签本来是没什么用的及时解析到也没用，但可以用来存储player的位置信息
+            #此处有错误，但不知问题出在哪里IndexError: list index out of range, 是不是因为没有player才导致呢？先注释掉试试
+
+
 
             # hinge joints
             elif perceptor[0] == 'HJ':
@@ -927,6 +1073,7 @@ class NaoRobot(object):
         迈左脚"""
         done = [False]
         print("ACC:", np.linalg.norm(self.acc.get()))
+        #numpy.linalg.norm欧氏距离公式可以直接求空间中两点的距离,numpy.linalg.norm(a-b)    a,b分别存储一个三维坐标
 
         done[0] = False
 #        self.msched.append([self.move_hj_to, {'hj': 'rlj3', 'percent': 50}, done])
@@ -961,16 +1108,17 @@ class NaoRobot(object):
 # ============================================================================ #
 
 #####################
-# UTILITY FUNCTIONS #
+# UTILITY FUNCTIONS  #
 #####################
 
 def rotate_arbitrary(axis, point, angle=None, degree=True):
     """Rotate the 3D point about the given axis.
-    旋转3D坐标，通过得到轴线
+    通过得到轴线旋转3D点
     If axis is not normalized and angle is None, the angle is taken as the norm
-    of axis. If degree == False, angles are expected in radiant."""
+    of axis. If degree == False, angles are expected in radiant.
+    如果axis没有标准化且角度为空，这个角将使用一个基准脚，如果degree == false 角是弧度"""
 
-    # ensure axis is unit length
+    # ensure axis is unit length        确定轴线是单位长
     axisNorm = np.linalg.norm(axis)
     if axisNorm == 0: return point
     axisn    = axis / axisNorm
@@ -978,7 +1126,7 @@ def rotate_arbitrary(axis, point, angle=None, degree=True):
         angle = axisNorm
         
     if degree:
-        # convert to radiant
+        # convert to radiant　转化成弧度制
         angle *= np.pi / 180.0
 
     u = axisn[0]
